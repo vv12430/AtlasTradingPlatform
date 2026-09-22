@@ -1,0 +1,7 @@
+type Query { portfolios: [Portfolio!]! portfolio(id: ID!): Portfolio positions(id: ID!): [Position!]! trades: [Trade!]! trade(id: ID!): Trade }
+type Mutation { createPortfolio(input: CreatePortfolio!): Portfolio! submitTrade(input: TradeRequest!): Trade! }
+type Portfolio { id: ID! name: String! cash: Float! active: Boolean! version: Int! }
+type Position { symbol: String! quantity: Float! cost: Float! realizedPnl: Float! }
+type Trade { id: ID! portfolioId: ID! symbol: String! side: String! quantity: Float! price: Float! status: String! reason: String }
+input CreatePortfolio { name: String! cash: Float! }
+input TradeRequest { clientKey: String! portfolioId: ID! symbol: String! side: String! quantity: Float! price: Float! }

@@ -1,0 +1,7 @@
+type Query { policies: [Policy!]! policy(id: ID!): Policy decisions: [Decision!]! }
+type Mutation { createPolicy(input: PolicyInput!): Policy! stress(input: StressInput!): StressResult! }
+type Policy { id: ID! name: String! maxNotional: Float! enabled: Boolean! version: Int! }
+type Decision { id: ID! tradeId: ID! portfolioId: ID! notional: Float! status: String! reason: String! }
+input PolicyInput { name: String! maxNotional: Float! version: Int! }
+input StressInput { exposure: Float! shockPercent: Float! }
+type StressResult { pnl: Float! stressedValue: Float! }

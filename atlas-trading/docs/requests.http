@@ -1,0 +1,52 @@
+### IntelliJ HTTP Client examples. Community users can use curl or GraphiQL.
+@portfolio = http://localhost:8081
+@risk = http://localhost:8082
+@accounting = http://localhost:8083
+
+### Portfolio overview
+GET {{portfolio}}/api/portfolios
+
+### Submit an asynchronous trade (change clientKey for each new order)
+POST {{portfolio}}/api/trades
+Content-Type: application/json
+
+{"clientKey":"intellij-001","portfolioId":"demo","symbol":"AAPL","side":"BUY","quantity":10,"price":185}
+
+### Blotter
+GET {{portfolio}}/api/trades
+
+### GraphQL read
+POST {{portfolio}}/graphql
+Content-Type: application/json
+
+{"query":"{ portfolios { id name cash active version } positions(id: \"demo\") { symbol quantity cost realizedPnl } }"}
+
+### Risk decisions
+GET {{risk}}/api/decisions
+
+### Stress scenario
+POST {{risk}}/api/stress
+Content-Type: application/json
+
+{"exposure":100000,"shockPercent":-15}
+
+### Read current policy version before updating
+GET {{risk}}/api/policies/default
+
+### Update policy (replace version if it has changed)
+PUT {{risk}}/api/policies/default
+Content-Type: application/json
+
+{"name":"Maximum order notional (USD)","maxNotional":100000,"version":0}
+
+### Trial balance
+GET {{accounting}}/api/trial-balance
+
+### Immutable journals
+GET {{accounting}}/api/journals
+
+### Headers without body
+HEAD {{accounting}}/api/accounts
+
+### Discover allowed methods
+OPTIONS {{risk}}/api/policies

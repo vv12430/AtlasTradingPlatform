@@ -1,0 +1,7 @@
+type Query { accounts: [Account!]! account(id: ID!): Account journals: [Journal!]! trialBalance: [Balance!]! }
+type Mutation { createAccount(input: AccountInput!): Account! }
+type Account { id: ID! name: String! enabled: Boolean! version: Int! }
+input AccountInput { name: String! version: Int! }
+type Line { accountId: ID! debit: Float! credit: Float! }
+type Journal { id: ID! tradeId: ID! portfolioId: ID! description: String! lines: [Line!]! }
+type Balance { accountId: ID! name: String! debit: Float! credit: Float! }

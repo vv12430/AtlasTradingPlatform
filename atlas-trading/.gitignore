@@ -1,0 +1,9 @@
+**/target/
+**/node_modules/
+**/dist/
+**/test-results/
+**/playwright-report/
+.idea/
+*.iml
+.env
+*.log
