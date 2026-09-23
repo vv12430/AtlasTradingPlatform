@@ -16,7 +16,17 @@
   <packaging>pom</packaging>
   <properties>
     <java.version>21</java.version>
+    <springdoc.version>2.9.1</springdoc.version>
   </properties>
+  <dependencyManagement>
+    <dependencies>
+      <dependency>
+        <groupId>org.springdoc</groupId>
+        <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
+        <version>${springdoc.version}</version>
+      </dependency>
+    </dependencies>
+  </dependencyManagement>
   <modules>
     <module>platform-common</module>
     <module>portfolio-service</module>

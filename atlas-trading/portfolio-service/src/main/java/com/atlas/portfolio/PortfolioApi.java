@@ -2,12 +2,15 @@ package com.atlas.portfolio;
 
 import static com.atlas.portfolio.Models.*;
 
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import java.util.List;
 import org.springframework.graphql.data.method.annotation.*;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
+@Tag(name = "Portfolio", description = "Portfolio creation, renaming, activation, deletion and trades info")
 public class PortfolioApi {
 
   private final PortfolioService service;
@@ -16,6 +19,7 @@ public class PortfolioApi {
     this.service = service;
   }
 
+  @Operation(summary = "List portfolios")
   @GetMapping("/api/portfolios")
   @QueryMapping
   public List<Portfolio> portfolios() {

@@ -1,5 +1,11 @@
 server:
   port: ${PORT:8082}
+springdoc:
+  paths-to-match:
+    - /api/**
+  swagger-ui:
+    operations-sorter: alpha
+    tags-sorter: alpha
 spring:
   application:
     name: risk-service

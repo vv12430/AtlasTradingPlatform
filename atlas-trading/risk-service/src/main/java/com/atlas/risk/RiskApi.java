@@ -2,12 +2,15 @@ package com.atlas.risk;
 
 import static com.atlas.risk.RiskService.*;
 
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import java.util.List;
 import org.springframework.graphql.data.method.annotation.*;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
+@Tag(name = "Risk", description = "Risk policies, decisions, and stress testing")
 public class RiskApi {
 
   private final RiskService service;
@@ -16,6 +19,7 @@ public class RiskApi {
     this.service = service;
   }
 
+  @Operation(summary = "List risk policies")
   @GetMapping("/api/policies")
   @QueryMapping
   public List<Policy> policies() {

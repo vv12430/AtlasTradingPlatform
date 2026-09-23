@@ -2,12 +2,15 @@ package com.atlas.accounting;
 
 import static com.atlas.accounting.AccountingService.*;
 
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import java.util.List;
 import org.springframework.graphql.data.method.annotation.*;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
+@Tag(name = "Accounting", description = "Accounting operations such as creating, updating, toggling, deleting and listing accounts")
 public class AccountingApi {
 
   private final AccountingService service;
@@ -16,6 +19,7 @@ public class AccountingApi {
     this.service = service;
   }
 
+  @Operation(summary = "List accounts")
   @GetMapping("/api/accounts")
   @QueryMapping
   public List<Account> accounts() {
