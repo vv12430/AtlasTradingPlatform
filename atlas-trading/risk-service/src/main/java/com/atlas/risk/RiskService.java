@@ -138,11 +138,33 @@ public class RiskService {
     );
   }
 
+  /**
+   * Calculates the stress test P&L for a trade position under a given
+   * market shock.
+   *
+   * Applies a shock percentage to the position's exposure to estimate
+   * the profit or loss under that scenario, then returns both the P&L
+   * and the resulting stressed value (exposure adjusted by the P&L).
+   *
+   * For example, an exposure of $1,000,000 with a -10% shock produces
+   * a P&L of -$100,000 and a stressed value of $900,000 — i.e. a 10%
+   * market drop would leave the position worth $900k, a $100k loss.
+   */
   public StressResult stress(@Valid StressInput input) {
     var pnl = RiskMath.stress(input.exposure(), input.shockPercent());
     return new StressResult(pnl, input.exposure().add(pnl));
   }
 
+  /**
+   * Assesses a trade event against active risk policies and records an
+   * approve/reject decision.
+   * Evaluates the trade's notional against the maximum notional allowed by every
+   * currently enabled policy — the trade is approved only if all active
+   * policies pass it, and rejected if any policy fails it or if there
+   * are no active policies (fail-closed). Persists the decision
+   * (approved/rejected plus a reason) to the database, then emits a
+   * "risk.assessed" event carrying the outcome.
+   */
   @Transactional
   public void assess(TradeEvent event) {
     if (!events.first(event)) return;

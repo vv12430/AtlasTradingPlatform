@@ -149,6 +149,24 @@ public class AccountingService {
     );
   }
 
+  /**
+   * Posts an executed trade to the accounting ledger as a balanced
+   * double-entry journal.
+   *
+   * Only accepts events with status EXECUTED, and is idempotent: it
+   * skips duplicate event deliveries and skips trades that already have
+   * a journal entry recorded, so a trade is never posted twice. Builds
+   * the debit/credit lines for the trade (based on side and notional)
+   * and refuses to post if those lines don't balance, since every
+   * journal entry must have total debits equal to total credits.
+   *
+   * Persists a journal header describing the trade, followed by one
+   * journal_lines row per debit/credit entry.
+   *
+   * For example, posting an EXECUTED BUY of 100 AAPL with a $15,000
+   * notional creates a journal entry debiting an Investments account
+   * $15,000 and crediting Cash $15,000, keeping the ledger balanced.
+   */
   @Transactional
   public void post(TradeEvent event) {
     if (!event.status().equals("EXECUTED")) throw new IllegalArgumentException(

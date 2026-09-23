@@ -138,6 +138,30 @@ public class PortfolioService {
     );
   }
 
+  /**
+   * Submits a new trade for risk assessment, handling both concurrency
+   * safety and idempotent retries.
+   *
+   * Locks the target portfolio row for the duration of the transaction
+   * so concurrent submissions against the same portfolio are serialized
+   * rather than racing. Uses the caller-supplied client key as an
+   * idempotency key: if a trade with the same key already exists and
+   * matches this request exactly, the existing trade is returned as-is
+   * (a safe retry); if it exists but differs in any material field, the
+   * request is rejected as a key reuse conflict. New trades are rejected
+   * if the portfolio is inactive.
+   *
+   * On success, persists the trade with status PENDING_RISK and emits a
+   * "trade.submitted.v1" event (via the transactional outbox) to trigger
+   * downstream risk policy evaluation.
+   *
+   * For example, submitting a BUY of 100 AAPL @ $150 with client key
+   * "client-abc-001" creates a new PENDING_RISK trade and emits an
+   * event. Retrying the identical request with the same client key
+   * returns the same trade without creating a duplicate; retrying with
+   * the same key but quantity 200 instead throws IllegalStateException.
+   */
+
   @Transactional
   public Trade submit(@Valid TradeRequest input) {
     // Lock the aggregate to serialize submissions and execution for this portfolio.
@@ -195,6 +219,30 @@ public class PortfolioService {
     return trade(id);
   }
 
+  /**
+   * Handles the outcome of risk assessment for a trade and, if approved,
+   * simulates its execution against the portfolio.
+   *
+   * A REJECTED risk outcome simply
+   * marks the trade rejected with the given reason. An APPROVED outcome
+   * is executed only if the portfolio is still active, the notional is
+   * non-zero, there is sufficient cash for a BUY, and the position has
+   * enough quantity to cover a SELL (short selling is disabled).
+   *
+   * On execution, updates the position using average-cost accounting:
+   * a BUY increases quantity and cost basis with no realized P&L; a SELL
+   * decreases quantity, removes a proportional slice of the cost basis,
+   * and realizes P&L as the difference between the sale notional and
+   * that removed cost. Persists the updated position and portfolio cash,
+   * marks the trade EXECUTED, and emits a "trade.executed.v1" event.
+   *
+   * For example, buying 100 shares for a $15,000 notional against a
+   * portfolio with no existing position creates a position with
+   * quantity 100, cost 15,000, and realized P&L 0, and reduces cash by
+   * $15,000. Later selling 40 of those shares for a $6,800 notional
+   * (average cost $150/share) reduces the position to quantity 60 and
+   * cost 9,000, realizes a $800 gain, and increases cash by $6,800.
+   */
   @Transactional
   public void assessed(TradeEvent event) {
     var p = db.queryForObject(

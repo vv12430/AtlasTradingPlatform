@@ -14,6 +14,14 @@ public class TradeListener {
     this.events = events;
   }
 
+  /**
+   * Kafka listener that consumes risk assessment outcomes from the
+   * "risk.assessed.v1" topic.
+   *
+   * Deserializes the raw JSON payload into a TradeEvent and hands it off
+   * to the service to be executed (if approved) or rejected, completing
+   * the trade lifecycle that began with its submission and risk check.
+   */
   @org.springframework.kafka.annotation.KafkaListener(
     topics = "risk.assessed.v1"
   )

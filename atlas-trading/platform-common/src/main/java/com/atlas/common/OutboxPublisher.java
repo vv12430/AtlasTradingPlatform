@@ -24,6 +24,25 @@ public class OutboxPublisher {
     this.kafka = kafka;
   }
 
+  /**
+   * Relays pending events from the outbox table to Kafka.
+   *
+   * Fetches up to 100 unsent outbox rows in creation order and attempts
+   * to publish each one to its target topic, marking it sent only after
+   * the Kafka send is confirmed. If a publish fails, processing stops
+   * for the remainder of this batch rather than skipping ahead, so
+   * events are never published out of order; the failed (and any
+   * later) events remain unsent and will be retried on the next run.
+   *
+   * Interruption during a send restores the thread's interrupted status
+   * so callers (e.g. a scheduler or thread pool) can detect the request
+   * to stop.
+   *
+   * For example, given unsent events A, B, and C in that order, if B
+   * fails to publish, A is marked sent, but B and C are left unsent and
+   * both will be retried, in order, the next time this method runs.
+   */
+
   @Scheduled(fixedDelay = 1000)
   public void publish() {
     var rows = db.queryForList(

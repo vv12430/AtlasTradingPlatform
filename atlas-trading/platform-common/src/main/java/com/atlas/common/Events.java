@@ -15,6 +15,19 @@ public class Events {
     this.json = json;
   }
 
+  /**
+   * Records an event to be published to a message topic, using the
+   * transactional outbox pattern rather than publishing directly.
+   *
+   * Serializes the event to JSON and inserts it into the outbox table
+   * as unsent (sent = 0). A separate relay process is expected to poll
+   * this table, publish unsent rows to the actual topic, and mark them
+   * as sent.
+   *
+   * For example, emitting a "risk.assessed.v1" event for portfolio
+   * "PORT-42" inserts a row keyed by that portfolio ID with the
+   * serialized event payload and sent = 0, to be delivered later.
+   */
   public void emit(String topic, TradeEvent event) {
     try {
       db.update(
