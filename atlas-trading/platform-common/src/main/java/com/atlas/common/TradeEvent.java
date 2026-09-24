@@ -13,7 +13,9 @@ public record TradeEvent(
   BigDecimal quantity,
   BigDecimal price,
   String status,
-  String reason
+  String reason,
+  BigDecimal fillQuantity,
+  BigDecimal fees
 ) {
   public TradeEvent next(String status, String reason) {
     return new TradeEvent(
@@ -26,7 +28,26 @@ public record TradeEvent(
       quantity,
       price,
       status,
-      reason
+      reason,
+      fillQuantity,
+      fees
+    );
+  }
+
+  public TradeEvent withFill(BigDecimal fillQuantity, BigDecimal fees) {
+    return new TradeEvent(
+      UUID.randomUUID().toString(),
+      1,
+      tradeId,
+      portfolioId,
+      symbol,
+      side,
+      quantity,
+      price,
+      status,
+      reason,
+      fillQuantity,
+      fees
     );
   }
 

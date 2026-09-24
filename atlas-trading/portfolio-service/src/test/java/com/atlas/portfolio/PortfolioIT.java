@@ -57,7 +57,9 @@ class PortfolioIT {
       t.quantity(),
       t.price(),
       "APPROVED",
-      "Test approval"
+      "Test approval",
+      BigDecimal.ZERO,
+      BigDecimal.ZERO
     );
   }
 
@@ -149,7 +151,7 @@ class PortfolioIT {
         service.trade(a.id()).status(),
         service.trade(b.id()).status()
       )
-    ).containsExactlyInAnyOrder("EXECUTED", "REJECTED");
+    ).containsExactlyInAnyOrder("FILLED", "REJECTED");
   }
 
   @Test
@@ -180,5 +182,212 @@ class PortfolioIT {
       .andExpect(status().isOk())
       .andExpect(jsonPath("$.data.portfolios").isArray())
       .andExpect(jsonPath("$.errors").doesNotExist());
+  }
+
+  @Test
+  void partialFillUpdatesTradeState() {
+    var p = service.create(new CreatePortfolio("Partial Fill", new BigDecimal("10000")));
+    var t = service.submit(request(p.id(), "BUY", "100", "100"));
+    
+    // Simulate partial fill of 50 shares
+    var partialEvent = new TradeEvent(
+      UUID.randomUUID().toString(),
+      1,
+      t.id(),
+      p.id(),
+      "AAPL",
+      "BUY",
+      new BigDecimal("100"),
+      new BigDecimal("100"),
+      "APPROVED",
+      "Partial fill",
+      new BigDecimal("50"),
+      BigDecimal.ZERO
+    );
+    service.assessed(partialEvent);
+    
+    var updated = service.trade(t.id());
+    assertThat(updated.status()).isEqualTo("PARTIALLY_FILLED");
+    assertThat(updated.filledQuantity()).isEqualByComparingTo("50");
+    assertThat(updated.remainingQuantity()).isEqualByComparingTo("50");
+    assertThat(service.get(p.id()).cash()).isEqualByComparingTo("5000"); // 10000 - (50 * 100) = 5000
+  }
+
+  @Test
+  void fullFillAfterPartialUpdatesToFilled() {
+    var p = service.create(new CreatePortfolio("Full Fill", new BigDecimal("10000")));
+    var t = service.submit(request(p.id(), "BUY", "100", "100"));
+    
+    // First partial fill
+    var partialEvent = new TradeEvent(
+      UUID.randomUUID().toString(),
+      1,
+      t.id(),
+      p.id(),
+      "AAPL",
+      "BUY",
+      new BigDecimal("100"),
+      new BigDecimal("100"),
+      "APPROVED",
+      "Partial fill",
+      new BigDecimal("50"),
+      BigDecimal.ZERO
+    );
+    service.assessed(partialEvent);
+    
+    // Second fill completes the order
+    var completeEvent = new TradeEvent(
+      UUID.randomUUID().toString(),
+      1,
+      t.id(),
+      p.id(),
+      "AAPL",
+      "BUY",
+      new BigDecimal("100"),
+      new BigDecimal("100"),
+      "APPROVED",
+      "Complete fill",
+      new BigDecimal("50"),
+      BigDecimal.ZERO
+    );
+    service.assessed(completeEvent);
+    
+    var updated = service.trade(t.id());
+    assertThat(updated.status()).isEqualTo("FILLED");
+    assertThat(updated.filledQuantity()).isEqualByComparingTo("100");
+    assertThat(updated.remainingQuantity()).isEqualByComparingTo("0");
+    assertThat(service.get(p.id()).cash()).isEqualByComparingTo("0"); // 10000 - (100 * 100) = 0
+  }
+
+  @Test
+  void cancelPendingTrade() {
+    var p = service.create(new CreatePortfolio("Cancel", new BigDecimal("1000")));
+    var t = service.submit(request(p.id(), "BUY", "10", "100"));
+    
+    service.cancel(new CancelRequest(t.id(), "User requested cancellation"));
+    
+    var updated = service.trade(t.id());
+    assertThat(updated.status()).isEqualTo("CANCELLED");
+    assertThat(service.get(p.id()).cash()).isEqualByComparingTo("1000"); // Cash unchanged
+  }
+
+  @Test
+  void cancelPartiallyFilledTrade() {
+    var p = service.create(new CreatePortfolio("Cancel Partial", new BigDecimal("10000")));
+    var t = service.submit(request(p.id(), "BUY", "100", "100"));
+    
+    // Partial fill first
+    var partialEvent = new TradeEvent(
+      UUID.randomUUID().toString(),
+      1,
+      t.id(),
+      p.id(),
+      "AAPL",
+      "BUY",
+      new BigDecimal("100"),
+      new BigDecimal("100"),
+      "APPROVED",
+      "Partial fill",
+      new BigDecimal("30"),
+      BigDecimal.ZERO
+    );
+    service.assessed(partialEvent);
+    
+    // Cancel remaining
+    service.cancel(new CancelRequest(t.id(), "Cancel remaining"));
+    
+    var updated = service.trade(t.id());
+    assertThat(updated.status()).isEqualTo("CANCELLED");
+    assertThat(updated.filledQuantity()).isEqualByComparingTo("30");
+    assertThat(service.get(p.id()).cash()).isEqualByComparingTo("7000"); // 10000 - (30 * 100) = 7000
+  }
+
+  @Test
+  void cannotCancelFilledOrRejectedTrade() {
+    var p = service.create(new CreatePortfolio("No Cancel", new BigDecimal("1000")));
+    var t = service.submit(request(p.id(), "BUY", "10", "100"));
+    
+    // Fill the trade
+    var approved = approved(t);
+    service.assessed(approved);
+    
+    assertThatThrownBy(() -> 
+      service.cancel(new CancelRequest(t.id(), "Should fail"))
+    ).isInstanceOf(IllegalStateException.class);
+  }
+
+  @Test
+  void modifyPendingTrade() {
+    var p = service.create(new CreatePortfolio("Modify", new BigDecimal("10000")));
+    var t = service.submit(request(p.id(), "BUY", "100", "100"));
+    
+    var modified = service.modify(new ModifyRequest(t.id(), new BigDecimal("80"), new BigDecimal("110")));
+    
+    assertThat(modified.quantity()).isEqualByComparingTo("80");
+    assertThat(modified.price()).isEqualByComparingTo("110");
+    assertThat(modified.status()).isEqualTo("PENDING_RISK");
+  }
+
+  @Test
+  void cannotModifyFilledTrade() {
+    var p = service.create(new CreatePortfolio("No Modify", new BigDecimal("1000")));
+    var t = service.submit(request(p.id(), "BUY", "10", "100"));
+    
+    // Fill the trade
+    var approved = approved(t);
+    service.assessed(approved);
+    
+    assertThatThrownBy(() -> 
+      service.modify(new ModifyRequest(t.id(), new BigDecimal("20"), new BigDecimal("110")))
+    ).isInstanceOf(IllegalStateException.class);
+  }
+
+  @Test
+  void feesDeductedFromCashAndRealizedPnl() {
+    var p = service.create(new CreatePortfolio("Fees", new BigDecimal("20000")));
+    var t = service.submit(request(p.id(), "BUY", "100", "100"));
+    
+    var eventWithFees = new TradeEvent(
+      UUID.randomUUID().toString(),
+      1,
+      t.id(),
+      p.id(),
+      "AAPL",
+      "BUY",
+      new BigDecimal("100"),
+      new BigDecimal("100"),
+      "APPROVED",
+      "With fees",
+      new BigDecimal("100"),
+      new BigDecimal("50")
+    );
+    service.assessed(eventWithFees);
+    
+    // Cash should be reduced by notional + fees = 10000 + 50 = 10050
+    assertThat(service.get(p.id()).cash()).isEqualByComparingTo("9950");
+    
+    // Now sell with fees
+    var sell = service.submit(request(p.id(), "SELL", "100", "120"));
+    var sellEvent = new TradeEvent(
+      UUID.randomUUID().toString(),
+      1,
+      sell.id(),
+      p.id(),
+      "AAPL",
+      "SELL",
+      new BigDecimal("100"),
+      new BigDecimal("120"),
+      "APPROVED",
+      "Sell with fees",
+      new BigDecimal("100"),
+      new BigDecimal("30")
+    );
+    service.assessed(sellEvent);
+    
+    // Cash: 9950 + (12000 - 30) = 21920
+    // Realized P&L: (12000 - 10000 - 30) = 1970 (buy fees already deducted from cash, not from cost basis)
+    assertThat(service.get(p.id()).cash()).isEqualByComparingTo("21920");
+    var pos = service.positions(p.id()).getFirst();
+    assertThat(pos.realizedPnl()).isEqualByComparingTo("1970");
   }
 }

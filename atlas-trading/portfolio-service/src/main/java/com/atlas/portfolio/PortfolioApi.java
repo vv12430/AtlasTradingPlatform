@@ -87,4 +87,16 @@ public class PortfolioApi {
   public Trade submitTrade(@RequestBody @Argument @Valid TradeRequest input) {
     return service.submit(input);
   }
+
+  @PostMapping("/api/trades/cancel")
+  @ResponseStatus(org.springframework.http.HttpStatus.OK)
+  public void cancelTrade(@RequestBody @Valid CancelRequest input) {
+    service.cancel(input);
+  }
+
+  @PostMapping("/api/trades/modify")
+  @ResponseStatus(org.springframework.http.HttpStatus.OK)
+  public Trade modifyTrade(@RequestBody @Valid ModifyRequest input) {
+    return service.modify(input);
+  }
 }

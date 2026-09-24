@@ -25,6 +25,26 @@ public final class Ledger {
    * credits securities $6,800.
    */
   public static List<Line> lines(String side, BigDecimal amount) {
+    return lines(side, amount, BigDecimal.ZERO);
+  }
+
+  /**
+   * Builds the double-entry journal lines for a trade, including fees.
+   *
+   * A BUY debits the securities account and credits cash for the full
+   * amount. A SELL debits cash and credits the securities account.
+   * When fees are present, an additional line debits the fees account
+   * and adjusts the cash credit/debit to include the fee amount,
+   * keeping the journal balanced.
+   *
+   * Rejects a non-positive amount and any side other than "BUY" or
+   * "SELL".
+   *
+   * For example, lines("BUY", 15000, 50) debits securities $15,000,
+   * debits fees $50, and credits cash $15,050. lines("SELL", 6800, 50)
+   * debits cash $6,750, credits securities $6,800, and credits fees $50.
+   */
+  public static List<Line> lines(String side, BigDecimal amount, BigDecimal fees) {
     if (amount.signum() <= 0) throw new IllegalArgumentException(
       "Posting amount must be positive"
     );
@@ -32,10 +52,29 @@ public final class Ledger {
       !side.equals("BUY") && !side.equals("SELL")
     ) throw new IllegalArgumentException("Invalid side");
     boolean buy = side.equals("BUY");
-    return List.of(
-      new Line(buy ? "securities" : "cash", amount, BigDecimal.ZERO),
-      new Line(buy ? "cash" : "securities", BigDecimal.ZERO, amount)
-    );
+    
+    if (fees == null || fees.compareTo(BigDecimal.ZERO) == 0) {
+      return List.of(
+        new Line(buy ? "securities" : "cash", amount, BigDecimal.ZERO),
+        new Line(buy ? "cash" : "securities", BigDecimal.ZERO, amount)
+      );
+    }
+    
+    // With fees: BUY debits securities + fees, credits cash (amount + fees)
+    // SELL debits cash (amount - fees), credits securities + credits fees
+    if (buy) {
+      return List.of(
+        new Line("securities", amount, BigDecimal.ZERO),
+        new Line("fees", fees, BigDecimal.ZERO),
+        new Line("cash", BigDecimal.ZERO, amount.add(fees))
+      );
+    } else {
+      return List.of(
+        new Line("cash", amount.subtract(fees), BigDecimal.ZERO),
+        new Line("securities", BigDecimal.ZERO, amount),
+        new Line("fees", BigDecimal.ZERO, fees)
+      );
+    }
   }
 
   /**

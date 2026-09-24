@@ -40,7 +40,9 @@ class RiskIT {
       BigDecimal.ONE,
       new BigDecimal(price),
       "PENDING_RISK",
-      ""
+      "",
+      BigDecimal.ZERO,
+      BigDecimal.ZERO
     );
   }
 

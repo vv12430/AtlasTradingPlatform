@@ -52,7 +52,9 @@ class KafkaRiskIT {
       BigDecimal.ONE,
       BigDecimal.TEN,
       "PENDING_RISK",
-      ""
+      "",
+      BigDecimal.ZERO,
+      BigDecimal.ZERO
     );
     kafka
       .send("trade.submitted.v1", e.portfolioId(), json.writeValueAsString(e))

@@ -16,6 +16,8 @@ Use service ports 8081 (Portfolio), 8082 (Risk), and 8083 (Accounting). JSON req
 | GET | `/api/trades` | Latest trade blotter |
 | GET | `/api/trades/{id}` | State and reason |
 | POST | `/api/trades` | Trade command below; 202 |
+| POST | `/api/trades/cancel` | Cancel a pending or partially filled trade |
+| POST | `/api/trades/modify` | Modify quantity and price of a pending trade |
 | HEAD | `/api/portfolios` | Same headers as GET, no body |
 | OPTIONS | `/api/portfolios` | Framework-generated Allow header |
 
@@ -30,7 +32,24 @@ Use service ports 8081 (Portfolio), 8082 (Risk), and 8083 (Accounting). JSON req
 }
 ```
 
-Preserve `clientKey` when retrying after a timeout. Use a new key for a genuinely new order. Valid sides are BUY and SELL. No automatic short positions are allowed.
+Cancel trade:
+```json
+{
+  "tradeId": "trade-uuid",
+  "reason": "User requested cancellation"
+}
+```
+
+Modify trade:
+```json
+{
+  "tradeId": "trade-uuid",
+  "quantity": 15,
+  "price": 190
+}
+```
+
+Preserve `clientKey` when retrying after a timeout. Use a new key for a genuinely new order. Valid sides are BUY and SELL. No automatic short positions are allowed. Trade states: PENDING_RISK, PARTIALLY_FILLED, FILLED, REJECTED, CANCELLED.
 
 ## Risk
 

@@ -41,7 +41,9 @@ class AccountingIT {
       new BigDecimal("3"),
       new BigDecimal("100"),
       "EXECUTED",
-      ""
+      "",
+      new BigDecimal("3"),
+      BigDecimal.ZERO
     );
     service.post(e);
     service.post(e);
