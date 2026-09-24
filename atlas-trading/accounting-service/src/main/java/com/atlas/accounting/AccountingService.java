@@ -153,12 +153,16 @@ public class AccountingService {
    * Posts an executed trade to the accounting ledger as a balanced
    * double-entry journal.
    *
-   * Only accepts events with status EXECUTED, and is idempotent: it
+   * Only accepts events with status EXECUTED or FILLED, and is idempotent: it
    * skips duplicate event deliveries and skips trades that already have
    * a journal entry recorded, so a trade is never posted twice. Builds
    * the debit/credit lines for the trade (based on side and notional)
    * and refuses to post if those lines don't balance, since every
    * journal entry must have total debits equal to total credits.
+   *
+   * Supports partial fills via fillQuantity. When fillQuantity is provided,
+   * only that portion is posted. Fees are posted to a separate fees account
+   * if present.
    *
    * Persists a journal header describing the trade, followed by one
    * journal_lines row per debit/credit entry.
@@ -166,12 +170,16 @@ public class AccountingService {
    * For example, posting an EXECUTED BUY of 100 AAPL with a $15,000
    * notional creates a journal entry debiting an Investments account
    * $15,000 and crediting Cash $15,000, keeping the ledger balanced.
+   * With $50 in fees, it debits Investments $15,000, debits Fees $50,
+   * and credits Cash $15,050.
    */
   @Transactional
   public void post(TradeEvent event) {
-    if (!event.status().equals("EXECUTED")) throw new IllegalArgumentException(
-      "Only executed trades may be posted"
-    );
+    if (!event.status().equals("EXECUTED") && !event.status().equals("FILLED")) {
+      throw new IllegalArgumentException(
+        "Only executed or filled trades may be posted"
+      );
+    }
     if (!events.first(event)) return;
     if (
       db.queryForObject(
@@ -180,17 +188,28 @@ public class AccountingService {
         event.tradeId()
       ) > 0
     ) return;
-    var lines = Ledger.lines(event.side(), event.notional());
+    
+    // Use fillQuantity if provided, otherwise use full quantity
+    BigDecimal qty = event.fillQuantity() != null && event.fillQuantity().compareTo(BigDecimal.ZERO) > 0
+      ? event.fillQuantity()
+      : event.quantity();
+    BigDecimal notional = qty.multiply(event.price()).setScale(2, java.math.RoundingMode.HALF_EVEN);
+    BigDecimal fees = event.fees() != null ? event.fees() : BigDecimal.ZERO;
+    
+    var lines = Ledger.lines(event.side(), notional, fees);
     if (!Ledger.balanced(lines)) throw new IllegalStateException(
       "Unbalanced journal"
     );
     String id = UUID.randomUUID().toString();
+    String description = event.side() + " " + qty + " " + event.symbol() + 
+      (fees.compareTo(BigDecimal.ZERO) > 0 ? " (fees: " + fees + ")" : "");
+    
     db.update(
       "insert into journals(id,trade_id,portfolio_id,description) values(?,?,?,?)",
       id,
       event.tradeId(),
       event.portfolioId(),
-      event.side() + " " + event.quantity() + " " + event.symbol()
+      description
     );
     for (var line : lines)
       db.update(

@@ -36,7 +36,9 @@ class PortfolioValidationTest {
       BigDecimal.ONE,
       new BigDecimal("10.005"),
       "PENDING_RISK",
-      ""
+      "",
+      BigDecimal.ZERO,
+      BigDecimal.ZERO
     );
     assertThat(e.notional()).isEqualByComparingTo("10.00");
   }

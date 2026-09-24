@@ -46,6 +46,25 @@ public final class Models {
     BigDecimal price
   ) {}
 
+  public record CancelRequest(
+    @NotBlank String tradeId,
+    @NotBlank String reason
+  ) {}
+
+  public record ModifyRequest(
+    @NotBlank String tradeId,
+    @NotNull
+    @DecimalMin("0.000001")
+    @DecimalMax("1000000")
+    @Digits(integer = 7, fraction = 6)
+    BigDecimal quantity,
+    @NotNull
+    @DecimalMin("0.000001")
+    @DecimalMax("1000000")
+    @Digits(integer = 7, fraction = 6)
+    BigDecimal price
+  ) {}
+
   public record Trade(
     String id,
     String portfolioId,
@@ -54,7 +73,10 @@ public final class Models {
     BigDecimal quantity,
     BigDecimal price,
     String status,
-    String reason
+    String reason,
+    BigDecimal filledQuantity,
+    BigDecimal remainingQuantity,
+    BigDecimal fees
   ) {}
 
   public record Position(
