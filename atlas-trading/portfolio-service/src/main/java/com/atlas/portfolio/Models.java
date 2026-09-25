@@ -2,6 +2,7 @@ package com.atlas.portfolio;
 
 import jakarta.validation.constraints.*;
 import java.math.BigDecimal;
+import java.util.List;
 
 public final class Models {
 
@@ -77,6 +78,14 @@ public final class Models {
     BigDecimal filledQuantity,
     BigDecimal remainingQuantity,
     BigDecimal fees
+  ) {}
+
+  public record TradePage(
+    List<Trade> content,
+    int page,
+    int size,
+    long totalElements,
+    int totalPages
   ) {}
 
   public record Position(

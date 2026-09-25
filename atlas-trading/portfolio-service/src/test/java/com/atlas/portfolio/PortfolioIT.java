@@ -185,6 +185,63 @@ class PortfolioIT {
   }
 
   @Test
+  void searchesTradesWithFiltersSortingAndPagination() throws Exception {
+    var p = service.create(new CreatePortfolio("Trade search", new BigDecimal("10000")));
+    var first = service.submit(new TradeRequest(
+      UUID.randomUUID().toString(), p.id(), "ZZZZ", "BUY",
+      new BigDecimal("1"), new BigDecimal("100")
+    ));
+    var second = service.submit(new TradeRequest(
+      UUID.randomUUID().toString(), p.id(), "ZZZZ", "SELL",
+      new BigDecimal("2"), new BigDecimal("200")
+    ));
+    var third = service.submit(new TradeRequest(
+      UUID.randomUUID().toString(), p.id(), "ZZZZ", "BUY",
+      new BigDecimal("3"), new BigDecimal("300")
+    ));
+
+    mvc
+      .perform(
+        get("/api/trades")
+          .queryParam("side", "BUY")
+          .queryParam("symbol", "ZZZZ")
+          .queryParam("page", "0")
+          .queryParam("size", "1")
+          .queryParam("sort", "price,desc")
+      )
+      .andExpect(status().isOk())
+      .andExpect(jsonPath("$.content.length()").value(1))
+      .andExpect(jsonPath("$.content[0].id").value(third.id()))
+      .andExpect(jsonPath("$.totalElements").value(2))
+      .andExpect(jsonPath("$.totalPages").value(2));
+
+    mvc
+      .perform(
+        get("/api/trades")
+          .queryParam("status", "DOES_NOT_EXIST")
+          .queryParam("page", "0")
+          .queryParam("size", "10")
+      )
+      .andExpect(status().isOk())
+      .andExpect(jsonPath("$.content").isEmpty())
+      .andExpect(jsonPath("$.totalElements").value(0))
+      .andExpect(jsonPath("$.totalPages").value(0));
+  }
+
+  @Test
+  void rejectsInvalidTradeSearchPageAndSize() throws Exception {
+    mvc
+      .perform(get("/api/trades").queryParam("page", "-1"))
+      .andExpect(status().isBadRequest());
+    mvc
+      .perform(get("/api/trades").queryParam("size", "201"))
+      .andExpect(status().isBadRequest());
+    mvc
+      .perform(get("/api/trades").queryParam("sort", "clientKey,asc"))
+      .andExpect(status().isBadRequest());
+  }
+
+  @Test
   void partialFillUpdatesTradeState() {
     var p = service.create(new CreatePortfolio("Partial Fill", new BigDecimal("10000")));
     var t = service.submit(request(p.id(), "BUY", "100", "100"));

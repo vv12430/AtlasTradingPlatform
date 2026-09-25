@@ -115,11 +115,76 @@ public class PortfolioService {
     db.update("delete from portfolios where id=?", id);
   }
 
-  public List<Trade> trades() {
-    return db.query(
-      "select * from trades order by created_at desc fetch first 200 rows only",
-      trade
+  public TradePage trades(
+    String status,
+    String side,
+    String symbol,
+    int page,
+    int size,
+    String sort
+  ) {
+    if (page < 0) throw new IllegalArgumentException("page must be non-negative");
+    if (size < 1 || size > 200) throw new IllegalArgumentException(
+      "size must be between 1 and 200"
     );
+    if (side != null && !side.equals("BUY") && !side.equals("SELL")) {
+      throw new IllegalArgumentException("side must be BUY or SELL");
+    }
+    if (symbol != null && !symbol.matches("[A-Z][A-Z0-9.]{0,11}")) {
+      throw new IllegalArgumentException("symbol must be a valid uppercase symbol");
+    }
+
+    var sortParts = sort.split(",", -1);
+    if (sortParts.length != 2) throw new IllegalArgumentException(
+      "sort must be a field and direction, for example createdAt,desc"
+    );
+    var sortColumn = switch (sortParts[0]) {
+      case "createdAt", "created_at" -> "created_at";
+      case "symbol" -> "symbol";
+      case "status" -> "status";
+      case "side" -> "side";
+      case "quantity" -> "quantity";
+      case "price" -> "price";
+      default -> throw new IllegalArgumentException("Unsupported sort field");
+    };
+    var direction = switch (sortParts[1].toLowerCase(Locale.ROOT)) {
+      case "asc" -> "asc";
+      case "desc" -> "desc";
+      default -> throw new IllegalArgumentException("sort direction must be asc or desc");
+    };
+
+    var conditions = new ArrayList<String>();
+    var args = new ArrayList<Object>();
+    if (status != null && !status.isBlank()) {
+      conditions.add("status=?");
+      args.add(status);
+    }
+    if (side != null) {
+      conditions.add("side=?");
+      args.add(side);
+    }
+    if (symbol != null) {
+      conditions.add("symbol=?");
+      args.add(symbol);
+    }
+    var where = conditions.isEmpty() ? "" : " where " + String.join(" and ", conditions);
+    var total = db.queryForObject(
+      "select count(*) from trades" + where,
+      Long.class,
+      args.toArray()
+    );
+    var offset = Math.multiplyExact((long) page, size);
+    var queryArgs = new ArrayList<>(args);
+    queryArgs.add(offset);
+    queryArgs.add(size);
+    var rows = db.query(
+      "select * from trades" + where +
+      " order by " + sortColumn + " " + direction + ", id asc offset ? rows fetch next ? rows only",
+      trade,
+      queryArgs.toArray()
+    );
+    var totalPages = total == 0 ? 0 : (int) ((total + size - 1) / size);
+    return new TradePage(rows, page, size, total, totalPages);
   }
 
   public Trade trade(String id) {

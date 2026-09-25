@@ -70,9 +70,20 @@ public class PortfolioApi {
   }
 
   @GetMapping("/api/trades")
-  @QueryMapping
-  public List<Trade> trades() {
-    return service.trades();
+  public TradePage trades(
+    @RequestParam(required = false) String status,
+    @RequestParam(required = false) String side,
+    @RequestParam(required = false) String symbol,
+    @RequestParam(defaultValue = "0") int page,
+    @RequestParam(defaultValue = "50") int size,
+    @RequestParam(defaultValue = "createdAt,desc") String sort
+  ) {
+    return service.trades(status, side, symbol, page, size, sort);
+  }
+
+  @QueryMapping(name = "trades")
+  public List<Trade> graphqlTrades() {
+    return service.trades(null, null, null, 0, 200, "createdAt,desc").content();
   }
 
   @GetMapping("/api/trades/{id}")
