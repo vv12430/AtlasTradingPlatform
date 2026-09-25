@@ -354,6 +354,9 @@ td {
   border-bottom: 1px solid #eef1f4;
   padding: 19px 20px;
 }
+tr.selected-row td {
+  background: #f0f8f6;
+}
 td strong {
   font-size: 12px;
 }
@@ -512,6 +515,115 @@ tfoot {
   font-size: 10px;
   color: #8290a2;
   max-width: 220px;
+}
+.timeline-link {
+  display: block;
+  border: 0;
+  padding: 5px 0 0;
+  background: none;
+  color: #178c7c;
+  font-size: 10px;
+}
+.timeline-link:hover {
+  background: none;
+  text-decoration: underline;
+}
+.timeline-panel {
+  margin-top: -4px;
+}
+.timeline-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+.timeline-trade-id {
+  color: #93a0af;
+  font-size: 11px;
+  font-weight: 500;
+}
+.timeline-alert {
+  margin: 20px;
+}
+.timeline {
+  padding: 25px 28px 28px 34px;
+}
+.timeline-step {
+  display: flex;
+  gap: 16px;
+  min-height: 76px;
+  position: relative;
+}
+.timeline-step:not(:last-child)::before {
+  content: "";
+  position: absolute;
+  left: 10px;
+  top: 25px;
+  bottom: 0;
+  width: 2px;
+  background: #dce6e8;
+}
+.timeline-marker {
+  width: 22px;
+  height: 22px;
+  flex: 0 0 22px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  z-index: 1;
+  background: #edf1f6;
+  color: #7e8da0;
+  font-size: 12px;
+  font-weight: 700;
+}
+.timeline-marker.completed {
+  background: #dff3eb;
+  color: #21866e;
+}
+.timeline-marker.in-progress {
+  background: #fff0d0;
+  color: #aa7b21;
+}
+.timeline-marker.failed {
+  background: #fbe5e2;
+  color: #b75750;
+}
+.timeline-content {
+  flex: 1;
+  padding-bottom: 20px;
+}
+.timeline-step-heading {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: center;
+}
+.timeline-step-heading strong {
+  color: #26354a;
+  font-size: 12px;
+}
+.timeline-state {
+  border-radius: 5px;
+  padding: 5px 8px;
+  background: #edf1f6;
+  color: #687990;
+  font-size: 9px;
+}
+.timeline-state.completed {
+  background: #e8f6ef;
+  color: #25896e;
+}
+.timeline-state.in-progress {
+  background: #fff4dd;
+  color: #a57b28;
+}
+.timeline-state.failed {
+  background: #fbecea;
+  color: #b86159;
+}
+.timeline-content p {
+  margin: 7px 0 0;
+  color: #b86159;
+  font-size: 11px;
 }
 .table-scroll {
   overflow: auto;

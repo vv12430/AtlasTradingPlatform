@@ -220,5 +220,6 @@ public class AccountingService {
         line.debit(),
         line.credit()
       );
+    events.emit("trade.accounted.v1", event.next("ACCOUNTED", "Journal posted"));
   }
 }

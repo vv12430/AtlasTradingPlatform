@@ -15,6 +15,17 @@ export type Trade = {
   status: string;
   reason: string;
 };
+export type TimelineStep = {
+  key: string;
+  label: string;
+  state: "Completed" | "In Progress" | "Failed" | "Waiting";
+  timestamp: string | null;
+  detail: string | null;
+};
+export type TradeTimeline = {
+  tradeId: string;
+  steps: TimelineStep[];
+};
 export type Position = {
   symbol: string;
   quantity: number;

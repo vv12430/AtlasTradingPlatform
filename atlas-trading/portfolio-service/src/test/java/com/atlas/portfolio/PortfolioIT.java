@@ -229,6 +229,33 @@ class PortfolioIT {
   }
 
   @Test
+  void tradeTimelineShowsWaitingProgressAndCompletion() throws Exception {
+    var p = service.create(new CreatePortfolio("Timeline", new BigDecimal("10000")));
+    var t = service.submit(request(p.id(), "BUY", "1", "100"));
+
+    mvc
+      .perform(get("/api/trades/" + t.id() + "/timeline"))
+      .andExpect(status().isOk())
+      .andExpect(jsonPath("$.steps[0].state").value("Completed"))
+      .andExpect(jsonPath("$.steps[1].state").value("In Progress"))
+      .andExpect(jsonPath("$.steps[2].state").value("Waiting"))
+      .andExpect(jsonPath("$.steps[3].state").value("Waiting"))
+      .andExpect(jsonPath("$.steps[4].state").value("Waiting"))
+      .andExpect(jsonPath("$.steps[0].timestamp").isNotEmpty());
+
+    service.assessed(approved(t));
+    service.accounted(t.id());
+
+    mvc
+      .perform(get("/api/trades/" + t.id() + "/timeline"))
+      .andExpect(status().isOk())
+      .andExpect(jsonPath("$.steps[1].state").value("Completed"))
+      .andExpect(jsonPath("$.steps[2].state").value("Completed"))
+      .andExpect(jsonPath("$.steps[3].state").value("Completed"))
+      .andExpect(jsonPath("$.steps[4].state").value("Completed"));
+  }
+
+  @Test
   void rejectsInvalidTradeSearchPageAndSize() throws Exception {
     mvc
       .perform(get("/api/trades").queryParam("page", "-1"))

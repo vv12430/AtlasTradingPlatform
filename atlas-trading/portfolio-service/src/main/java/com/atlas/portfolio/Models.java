@@ -2,6 +2,7 @@ package com.atlas.portfolio;
 
 import jakarta.validation.constraints.*;
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.util.List;
 
 public final class Models {
@@ -87,6 +88,16 @@ public final class Models {
     long totalElements,
     int totalPages
   ) {}
+
+  public record TimelineStep(
+    String key,
+    String label,
+    String state,
+    Instant timestamp,
+    String detail
+  ) {}
+
+  public record TradeTimeline(String tradeId, List<TimelineStep> steps) {}
 
   public record Position(
     String symbol,

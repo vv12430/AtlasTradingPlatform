@@ -28,4 +28,11 @@ public class TradeListener {
   public void listen(String json) {
     service.assessed(events.read(json));
   }
+
+  @org.springframework.kafka.annotation.KafkaListener(
+    topics = "trade.accounted.v1"
+  )
+  public void accounted(String json) {
+    service.accounted(events.read(json).tradeId());
+  }
 }

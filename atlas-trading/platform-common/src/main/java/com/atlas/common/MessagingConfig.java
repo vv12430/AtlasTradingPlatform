@@ -41,6 +41,14 @@ public class MessagingConfig {
   }
 
   @Bean
+  NewTopic accounted() {
+    return TopicBuilder.name("trade.accounted.v1")
+      .partitions(3)
+      .replicas(1)
+      .build();
+  }
+
+  @Bean
   NewTopic submittedDlt() {
     return TopicBuilder.name("trade.submitted.v1.DLT")
       .partitions(3)

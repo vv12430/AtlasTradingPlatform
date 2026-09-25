@@ -5,6 +5,8 @@ import static com.atlas.portfolio.Models.*;
 import com.atlas.common.*;
 import jakarta.validation.Valid;
 import java.math.*;
+import java.sql.Timestamp;
+import java.time.Instant;
 import java.util.*;
 import org.springframework.jdbc.core.*;
 import org.springframework.stereotype.Service;
@@ -191,6 +193,62 @@ public class PortfolioService {
     return db.queryForObject("select * from trades where id=?", trade, id);
   }
 
+  public TradeTimeline timeline(String id) {
+    var row = db.queryForMap(
+      "select id,status,reason,submitted_at,risk_pending_at,risk_decided_at,execution_at,accounting_at from trades where id=?",
+      id
+    );
+    var status = (String) row.get("STATUS");
+    var reason = (String) row.get("REASON");
+    var submittedAt = instant(row.get("SUBMITTED_AT"));
+    var riskPendingAt = instant(row.get("RISK_PENDING_AT"));
+    var riskDecidedAt = instant(row.get("RISK_DECIDED_AT"));
+    var executionAt = instant(row.get("EXECUTION_AT"));
+    var accountingAt = instant(row.get("ACCOUNTING_AT"));
+    var rejected = "REJECTED".equals(status);
+    var cancelled = "CANCELLED".equals(status);
+    var filled = "FILLED".equals(status) || "EXECUTED".equals(status);
+    var partial = "PARTIALLY_FILLED".equals(status);
+    return new TradeTimeline(
+      id,
+      List.of(
+        new TimelineStep("submitted", "Submitted", "Completed", submittedAt, null),
+        new TimelineStep(
+          "pendingRisk",
+          "Pending risk",
+          rejected || cancelled || riskDecidedAt != null ? "Completed" : "In Progress",
+          riskPendingAt,
+          null
+        ),
+        new TimelineStep(
+          "riskDecision",
+          rejected ? "Rejected" : "Approval",
+          rejected ? "Failed" : riskDecidedAt == null ? "Waiting" : "Completed",
+          riskDecidedAt,
+          rejected ? reason : null
+        ),
+        new TimelineStep(
+          "execution",
+          "Execution",
+          rejected || cancelled ? "Failed" : filled ? "Completed" : partial ? "In Progress" : "Waiting",
+          executionAt,
+          cancelled ? "Trade cancelled" : rejected ? reason : null
+        ),
+        new TimelineStep(
+          "accounting",
+          "Accounting",
+          accountingAt != null ? "Completed" : filled || partial ? "In Progress" : "Waiting",
+          accountingAt,
+          null
+        )
+      )
+    );
+  }
+
+  private Instant instant(Object value) {
+    return value == null ? null : ((Timestamp) value).toInstant();
+  }
+
   public List<Position> positions(String id) {
     get(id);
     return db.query(
@@ -259,7 +317,7 @@ public class PortfolioService {
     if (!p.active()) throw new IllegalStateException("Portfolio is inactive");
     String id = UUID.randomUUID().toString();
     db.update(
-      "insert into trades(id,client_key,portfolio_id,symbol,side,quantity,price,status,filled_quantity,remaining_quantity,fees) values(?,?,?,?,?,?,?,?,?,?,?)",
+      "insert into trades(id,client_key,portfolio_id,symbol,side,quantity,price,status,filled_quantity,remaining_quantity,fees,submitted_at,risk_pending_at) values(?,?,?,?,?,?,?,?,?,?,?,?,?)",
       id,
       input.clientKey(),
       input.portfolioId(),
@@ -270,7 +328,9 @@ public class PortfolioService {
       "PENDING_RISK",
       BigDecimal.ZERO,
       input.quantity(),
-      BigDecimal.ZERO
+      BigDecimal.ZERO,
+      new Timestamp(System.currentTimeMillis()),
+      new Timestamp(System.currentTimeMillis())
     );
     events.emit(
       "trade.submitted.v1",
@@ -437,7 +497,7 @@ public class PortfolioService {
     String newStatus = newRemainingQty.compareTo(BigDecimal.ZERO) == 0 ? "FILLED" : "PARTIALLY_FILLED";
     
     db.update(
-      "update trades set status=?,filled_quantity=?,remaining_quantity=?,fees=?,reason=? where id=?",
+      "update trades set status=?,filled_quantity=?,remaining_quantity=?,fees=?,reason=?,risk_decided_at=current_timestamp,execution_at=current_timestamp where id=?",
       newStatus,
       newFilledQty,
       newRemainingQty,
@@ -454,8 +514,15 @@ public class PortfolioService {
 
   private void reject(String id, String reason) {
     db.update(
-      "update trades set status='REJECTED',reason=? where id=?",
+      "update trades set status='REJECTED',reason=?,risk_decided_at=current_timestamp where id=?",
       reason,
+      id
+    );
+  }
+
+  public void accounted(String id) {
+    db.update(
+      "update trades set accounting_at=current_timestamp where id=? and accounting_at is null",
       id
     );
   }

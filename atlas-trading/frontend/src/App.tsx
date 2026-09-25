@@ -23,6 +23,7 @@ import {
   type Journal,
   type Balance,
   type Account,
+  type TradeTimeline,
 } from "./api";
 type Snapshot = {
   portfolios: Portfolio[];
@@ -56,6 +57,10 @@ export default function App() {
     [positions, setPositions] = useState<Position[]>([]),
     [selected, setSelected] = useState("demo"),
     [tab, setTab] = useState<(typeof tabs)[number]>("Overview");
+  const [selectedTradeId, setSelectedTradeId] = useState<string | null>(null),
+    [timeline, setTimeline] = useState<TradeTimeline | null>(null),
+    [timelineLoading, setTimelineLoading] = useState(false),
+    [timelineError, setTimelineError] = useState("");
   const [error, setError] = useState(""),
     [notice, setNotice] = useState(""),
     [loading, setLoading] = useState(true),
@@ -128,6 +133,34 @@ export default function App() {
       loadSequence.current++;
     };
   }, [selected]);
+  useEffect(() => {
+    if (!selectedTradeId) {
+      setTimeline(null);
+      return;
+    }
+    let active = true;
+    setTimelineLoading(true);
+    setTimelineError("");
+    void api<TradeTimeline>(
+      "portfolio",
+      "/api/trades/" + selectedTradeId + "/timeline",
+    )
+      .then((result) => {
+        if (active) setTimeline(result);
+      })
+      .catch((e) => {
+        if (active)
+          setTimelineError(
+            e instanceof Error ? e.message : "Unable to load trade timeline",
+          );
+      })
+      .finally(() => {
+        if (active) setTimelineLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [selectedTradeId]);
   const portfolio = data.portfolios.find((p) => p.id === selected),
     cost = positions.reduce((s, p) => s + p.cost, 0),
     pnl = positions.reduce((s, p) => s + p.realizedPnl, 0),
@@ -397,7 +430,11 @@ export default function App() {
                     </div>
                   </>
                 ) : (
-                  <TradeTable trades={trades} />
+                  <TradeTable
+                    trades={trades}
+                    onSelect={setSelectedTradeId}
+                    selectedTradeId={selectedTradeId}
+                  />
                 )}
               </section>
               <section className="panel ticket">
@@ -478,6 +515,15 @@ export default function App() {
               </section>
             </div>
           )}
+          {selectedTradeId && (tab === "Overview" || tab === "Trade blotter") && (
+            <TradeTimelinePanel
+              trade={trades.find((t) => t.id === selectedTradeId)}
+              timeline={timeline}
+              loading={timelineLoading}
+              error={timelineError}
+              onClose={() => setSelectedTradeId(null)}
+            />
+          )}
           {tab === "Overview" && (
             <>
               <section className="panel">
@@ -493,7 +539,11 @@ export default function App() {
                     View blotter →
                   </button>
                 </div>
-                <TradeTable trades={trades.slice(0, 5)} />
+                <TradeTable
+                  trades={trades.slice(0, 5)}
+                  onSelect={setSelectedTradeId}
+                  selectedTradeId={selectedTradeId}
+                />
               </section>
               <section className="panel settings">
                 <h2>Portfolio management</h2>
@@ -933,7 +983,15 @@ function Empty({ text }: { text: string }) {
     </div>
   );
 }
-function TradeTable({ trades }: { trades: Trade[] }) {
+function TradeTable({
+  trades,
+  onSelect,
+  selectedTradeId,
+}: {
+  trades: Trade[];
+  onSelect?: (tradeId: string) => void;
+  selectedTradeId?: string | null;
+}) {
   return (
     <>
       <div className="table-scroll">
@@ -950,7 +1008,10 @@ function TradeTable({ trades }: { trades: Trade[] }) {
           </thead>
           <tbody>
             {trades.map((t) => (
-              <tr key={t.id}>
+              <tr
+                key={t.id}
+                className={selectedTradeId === t.id ? "selected-row" : ""}
+              >
                 <td>
                   <strong>{t.symbol}</strong>
                   <small>{t.id.slice(0, 8)}</small>
@@ -961,7 +1022,18 @@ function TradeTable({ trades }: { trades: Trade[] }) {
                 <td>{t.quantity}</td>
                 <td>{money(t.price)}</td>
                 <td>{status(t.status)}</td>
-                <td className="reason">{t.reason || "Waiting for risk"}</td>
+                <td className="reason">
+                  {t.reason || "Waiting for risk"}
+                  {onSelect && (
+                    <button
+                      className="timeline-link"
+                      onClick={() => onSelect(t.id)}
+                      aria-label={"View timeline for " + t.symbol}
+                    >
+                      View timeline
+                    </button>
+                  )}
+                </td>
               </tr>
             ))}
           </tbody>
@@ -971,5 +1043,70 @@ function TradeTable({ trades }: { trades: Trade[] }) {
         <Empty text="No orders yet. Use the order ticket to start the event flow." />
       )}
     </>
+  );
+}
+
+function TradeTimelinePanel({
+  trade,
+  timeline,
+  loading,
+  error,
+  onClose,
+}: {
+  trade?: Trade;
+  timeline: TradeTimeline | null;
+  loading: boolean;
+  error: string;
+  onClose: () => void;
+}) {
+  return (
+    <section className="panel timeline-panel" aria-label="Trade timeline">
+      <div className="panel-heading">
+        <div>
+          <h2>
+            {trade?.symbol ?? "Trade"} lifecycle
+            {trade && <span className="timeline-trade-id"> · {trade.id.slice(0, 8)}</span>}
+          </h2>
+          <p>
+            {trade
+              ? `${trade.side} ${trade.quantity} ${trade.symbol} at ${money(trade.price)}`
+              : "Selected trade"}
+          </p>
+        </div>
+        <div className="timeline-header-actions">
+          {trade && status(trade.status)}
+          <button className="text-button" onClick={onClose}>
+            Close
+          </button>
+        </div>
+      </div>
+      {loading && <div className="empty">Loading trade lifecycle…</div>}
+      {error && <div className="alert timeline-alert">{error}</div>}
+      {timeline && !loading && (
+        <div className="timeline">
+          {timeline.steps.map((step) => (
+            <div className="timeline-step" key={step.key}>
+              <div className={"timeline-marker " + step.state.toLowerCase().replaceAll(" ", "-")}>
+                {step.state === "Completed" ? "✓" : step.state === "Failed" ? "!" : "•"}
+              </div>
+              <div className="timeline-content">
+                <div className="timeline-step-heading">
+                  <strong>{step.label}</strong>
+                  <span className={"timeline-state " + step.state.toLowerCase().replaceAll(" ", "-")}>
+                    {step.state}
+                  </span>
+                </div>
+                <small>
+                  {step.timestamp
+                    ? new Date(step.timestamp).toLocaleString()
+                    : "No event recorded yet"}
+                </small>
+                {step.detail && <p>{step.detail}</p>}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </section>
   );
 }

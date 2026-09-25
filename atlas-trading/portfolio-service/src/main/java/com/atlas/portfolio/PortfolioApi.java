@@ -92,6 +92,11 @@ public class PortfolioApi {
     return service.trade(id);
   }
 
+  @GetMapping("/api/trades/{id}/timeline")
+  public TradeTimeline timeline(@PathVariable String id) {
+    return service.timeline(id);
+  }
+
   @PostMapping("/api/trades")
   @ResponseStatus(org.springframework.http.HttpStatus.ACCEPTED)
   @MutationMapping
